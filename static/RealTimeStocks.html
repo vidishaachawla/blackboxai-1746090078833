@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Real-Time Stock Predictions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Real-Time Stock Predictions</h1>
+    <div class="w-full max-w-xl bg-white rounded-lg shadow p-6">
+        <form id="stockForm" class="mb-6">
+            <label for="symbol" class="block text-gray-700 font-semibold mb-2">Enter Stock Symbol:</label>
+            <div class="flex">
+                <input
+                    type="text"
+                    id="symbol"
+                    name="symbol"
+                    placeholder="e.g., AAPL, MSFT, GOOGL"
+                    class="flex-grow border border-gray-300 rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                />
+                <button
+                    type="submit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700 transition"
+                >
+                    Get Prediction
+                </button>
+            </div>
+        </form>
+
+        <div id="predictionResult" class="hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Prediction for <span id="stockSymbol"></span></h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded shadow">
+                    <h3 class="font-semibold text-lg mb-2">Next-Day Prediction</h3>
+                    <p><strong>Predicted Closing Price:</strong> ₹<span id="predictedPrice"></span></p>
+                    <p><strong>Expected Price Change:</strong> ₹<span id="priceChangeDollars"></span> (<span id="priceChangePercent"></span>%)</p>
+                    <p><strong>Confidence Score:</strong> <span id="confidenceScore"></span>%</p>
+                    <p><strong>Target Time:</strong> <span id="targetTime"></span></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded shadow">
+                    <h3 class="font-semibold text-lg mb-2">Market Indicators</h3>
+                    <p><strong>Overall Market Trend:</strong> <span id="overallTrend"></span></p>
+                    <p><strong>US Futures Direction:</strong> <span id="usFutures"></span></p>
+                    <p><strong>European Markets Direction:</strong> <span id="europeanMarkets"></span></p>
+                    <p><strong>Volatility Index:</strong> <span id="volatilityIndex"></span></p>
+                    <p><strong>Risk Assessment:</strong> <span id="riskAssessment"></span></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="hidden text-red-600 mt-4"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('stockForm');
+        const predictionResult = document.getElementById('predictionResult');
+        const errorMessage = document.getElementById('errorMessage');
+
+        async function fetchPrediction(symbol) {
+            try {
+                const response = await fetch(`/api/stock-prediction?symbol=${encodeURIComponent(symbol)}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch prediction');
+                }
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function updateUI(data) {
+            document.getElementById('stockSymbol').textContent = data.symbol;
+            document.getElementById('predictedPrice').textContent = data.predicted_closing_price.toFixed(2);
+            document.getElementById('priceChangeDollars').textContent = data.price_change_dollars.toFixed(2);
+            document.getElementById('priceChangePercent').textContent = data.price_change_percent.toFixed(2);
+            document.getElementById('confidenceScore').textContent = data.confidence_score.toFixed(0);
+            const targetDate = new Date(data.target_time);
+            document.getElementById('targetTime').textContent = targetDate.toLocaleString();
+
+            document.getElementById('overallTrend').textContent = data.market_indicators.overall_trend;
+            document.getElementById('usFutures').textContent = data.market_indicators.us_futures_direction;
+            document.getElementById('europeanMarkets').textContent = data.market_indicators.european_markets_direction;
+            document.getElementById('volatilityIndex').textContent = data.market_indicators.volatility_index;
+            document.getElementById('riskAssessment').textContent = data.market_indicators.risk_assessment;
+
+            predictionResult.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            const symbol = document.getElementById('symbol').value.trim();
+            if (!symbol) return;
+            try {
+                const data = await fetchPrediction(symbol);
+                updateUI(data);
+            } catch (error) {
+                predictionResult.classList.add('hidden');
+                errorMessage.textContent = error.message;
+                errorMessage.classList.remove('hidden');
+            }
+        }
+
+        form.addEventListener('submit', handleFormSubmit);
+
+        // Auto-refresh every 60 seconds if a symbol is entered and prediction is shown
+        setInterval(async () => {
+            const symbol = document.getElementById('symbol').value.trim();
+            if (symbol && !predictionResult.classList.contains('hidden')) {
+                try {
+                    const data = await fetchPrediction(symbol);
+                    updateUI(data);
+                } catch (error) {
+                    predictionResult.classList.add('hidden');
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.remove('hidden');
+                }
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
